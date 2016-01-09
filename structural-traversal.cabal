@@ -1,0 +1,35 @@
+name:                structural-traversal
+version:             0.1.0.0
+-- synopsis:            Initial project template from stack
+-- description:         Please see README.md
+homepage:            http://github.com/nboldi/structural-traversal#readme
+-- license:             BSD3
+-- license-file:        LICENSE
+author:              Boldizsár Németh
+maintainer:          nboldi@elte.com
+-- copyright:           2010 Author Here
+category:            Util
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Data.StructuralTraversal
+                     , Data.StructuralTraversal.Class
+                     , Data.StructuralTraversal.Indexing
+                     , Data.StructuralTraversal.Instances
+                     , Data.StructuralTraversal.TH
+  build-depends:       base >= 4.7 && < 5
+                     , template-haskell >= 2.10.0.0
+                     , mtl >= 2.2.1
+  default-language:    Haskell2010
+
+test-suite smart-traversal-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Example.hs
+  build-depends:       base
+                     , HUnit
+                     , structural-traversal
+  default-language:    Haskell2010
+
