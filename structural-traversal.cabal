@@ -28,8 +28,8 @@ test-suite smart-traversal-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Example.hs
-  build-depends:       base
-                     , HUnit
+  build-depends:       base >= 4.7 && < 5
+                     , HUnit >= 1.2 && < 1.4
                      , structural-traversal
   default-language:    Haskell2010
 

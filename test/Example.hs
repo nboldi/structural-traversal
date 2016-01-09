@@ -6,7 +6,6 @@ import Data.StructuralTraversal.TH
 import Data.StructuralTraversal.Indexing
 import Data.Traversable
 import Control.Applicative
-import Debug.Trace
 import Test.HUnit hiding (test)
 
 data Name a = Name String
