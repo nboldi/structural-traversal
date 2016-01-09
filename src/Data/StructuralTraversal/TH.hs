@@ -1,5 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
-
+{-# LANGUAGE LambdaCase
+           , CPP #-}
 module Data.StructuralTraversal.TH where
   
 import Language.Haskell.TH
@@ -80,7 +80,7 @@ createInstance tyConName typArgs dataCons
                              else return (AppE applPure (VarE name), [])
         processParam name (AppT tf ta) = do
           expr <- createExprForHighKind' name (VarE f) ta
-          case expr of Just (e,ctx) -> return (e, if isTypVar tf then AppT (ConT className) tf : ctx
+          case expr of Just (e,ctx) -> return (e, if isTypVar tf then createConstraint className tf : ctx
                                                                  else ctx)
                        Nothing -> return (AppE applPure (VarE name), [])
         processParam name _
@@ -90,8 +90,9 @@ createInstance tyConName typArgs dataCons
         createExprForHighKind' :: Name -> Exp -> Type -> Q (Maybe (Exp, [Pred]))
         createExprForHighKind' name f (AppT tf ta)
           = do res <- createExprForHighKind' name (applExpr f) ta
-               case res of Just (e,ctx) -> return $ Just (e, if isTypVar tf then AppT (ConT className) tf : ctx
-                                                                            else ctx)
+               case res of Just (e,ctx) -> return $ Just (e, if isTypVar tf 
+                                                               then createConstraint className tf : ctx
+                                                               else ctx)
                            Nothing -> return Nothing
         createExprForHighKind' name f (VarT v)
           = do travV <- varToTraverseOn 
@@ -103,7 +104,15 @@ createInstance tyConName typArgs dataCons
           
         applExpr f = (((VarE funName) `AppE` (VarE desc)) `AppE` (VarE asc)) 
                           `AppE` f
-                          
+                       
+createConstraint :: Name -> Type -> Pred
+createConstraint name typ
+#if __GLASGOW_HASKELL__ >= 710
+  = AppT (ConT name) typ
+#else
+  = ClassP name [typ]
+#endif
+                       
                
 isTypVar :: Type -> Bool
 isTypVar (VarT _) = True
