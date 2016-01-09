@@ -16,6 +16,6 @@ data List a = Nil | Cons a (List a)
 
 deriveStructTrav ''Maybe
 deriveStructTrav ''List
-deriveStructTrav ''[]
+--deriveStructTrav ''[]
 
 
