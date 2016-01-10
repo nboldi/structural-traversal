@@ -36,14 +36,18 @@ createInstance tyConName typArgs dataCons
           []                        -> fail $ "The kind of type " ++ show tyConName ++ " is *"
   
         -- | Creates a clause for a constructor, the needed context is also generated
-        createClause :: Con -> Q (Clause,[Pred])
-        createClause (RecC conName conArgs) 
-          = createClause' conName (map (\(_,_,r) -> r) conArgs)
+        createClause :: Con -> Q (Clause, [Pred])
         createClause (NormalC conName conArgs) 
           = createClause' conName (map snd conArgs)
+        createClause (RecC conName conArgs) 
+          = createClause' conName (map (\(_,_,r) -> r) conArgs)
+        createClause (InfixC conArg1 conName conArg2)
+          = createClause' conName [snd conArg1, snd conArg2]
         
+        createClause' :: Name -> [Type] -> Q (Clause, [Pred])
         createClause' conName argTypes
-          = do bindedNames <- replicateM (length argTypes) (newName "p")
+          = do runIO $ putStrLn $ "##: " ++ show conName ++" ## "++ show argTypes
+               bindedNames <- replicateM (length argTypes) (newName "p")
                (handleParams,ctx) <- unzip <$> zipWithM processParam
                                                         bindedNames argTypes
                return $ (Clause [ VarP desc, VarP asc, VarP f

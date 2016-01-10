@@ -12,10 +12,7 @@ import Data.StructuralTraversal.TH
 -- instance {-# OVERLAPPABLE #-} Traversable f => SmartTrav f where
   -- smartTrav desc asc f = traverse (smartTrav desc asc f)
 
-data List a = Nil | Cons a (List a)
-
+deriveStructTrav ''[]
 deriveStructTrav ''Maybe
-deriveStructTrav ''List
---deriveStructTrav ''[]
-
+deriveStructTrav ''Either
 
