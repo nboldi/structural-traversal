@@ -1,9 +1,15 @@
 {-# LANGUAGE FlexibleInstances
-           , UndecidableInstances #-}
+           , UndecidableInstances
+           , TemplateHaskell
+           #-}
 module Data.StructuralTraversal.Instances where
 
 import Data.StructuralTraversal.Class
 import Control.Applicative
 import Data.Traversable
+import Data.StructuralTraversal.TH
 
--- currently no predefined instances
+deriveStructTrav ''[]
+deriveStructTrav ''Maybe
+deriveStructTrav ''Either
+

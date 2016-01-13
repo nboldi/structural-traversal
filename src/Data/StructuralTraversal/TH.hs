@@ -1,9 +1,11 @@
 {-# LANGUAGE LambdaCase
-           , CPP 
+           , CPP
+           , TemplateHaskell           
            #-}
 module Data.StructuralTraversal.TH where
   
 import Language.Haskell.TH
+import Data.StructuralTraversal.Class
 import Data.Maybe
 import Control.Monad
 import Control.Applicative
@@ -43,7 +45,10 @@ createInstance tyConName typArgs dataCons
           = createClause' funN conName (map (\(_,_,r) -> r) conArgs)
         createClause funN (NormalC conName conArgs) 
           = createClause' funN conName (map snd conArgs)
+        createClause funN (InfixC conArg1 conName conArg2)
+          = createClause' funN conName [snd conArg1, snd conArg2]
         
+        createClause' :: Name -> Name -> [Type] -> Q (Clause, [Pred])
         createClause' funN conName argTypes
           = do bindedNames <- replicateM (length argTypes) (newName "p")
                (handleParams,ctx) <- unzip <$> zipWithM (processParam funN)
@@ -68,9 +73,9 @@ createInstance tyConName typArgs dataCons
         applDollar = VarE (mkName "Control.Applicative.<$>")
         applPure = VarE (mkName "Control.Applicative.pure")
         
-        className = mkName "StructuralTraversable"
-        upName = mkName "traverseUp"
-        downName = mkName "traverseDown"
+        className = ''StructuralTraversable
+        upName = 'traverseUp
+        downName = 'traverseDown
         desc = mkName "desc"
         asc = mkName "asc"
         f = mkName "f"
