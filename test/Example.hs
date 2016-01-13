@@ -6,6 +6,7 @@ import Data.StructuralTraversal.TH
 import Data.StructuralTraversal.Indexing
 import Data.Traversable
 import Control.Applicative
+import Control.Monad.Writer
 import Test.HUnit hiding (test)
 
 data Name a = Name String
@@ -32,13 +33,15 @@ data Ann elem annot
      deriving (Show, Eq)
      
 instance StructuralTraversable elem => StructuralTraversable (Ann elem) where
-  structTraverse desc asc f (Ann ann e) = flip Ann <$> (desc *> structTraverse desc asc f e <* asc) <*> f ann
+  traverseUp desc asc f (Ann ann e) = flip Ann <$> (desc *> traverseUp desc asc f e <* asc) <*> f ann
+  traverseDown desc asc f (Ann ann e) = Ann <$> f ann <*> (desc *> traverseDown desc asc f e <* asc)
       
 newtype AnnList e a = AnnList { fromAnnList :: [Ann e a] }
      deriving (Show, Eq)
 
 instance StructuralTraversable elem => StructuralTraversable (AnnList elem) where
-  structTraverse desc asc f (AnnList ls) = AnnList <$> sequenceA (map (structTraverse desc asc f) ls)
+  traverseUp desc asc f (AnnList ls) = AnnList <$> sequenceA (map (traverseUp desc asc f) ls)
+  traverseDown desc asc f (AnnList ls) = AnnList <$> sequenceA (map (traverseDown desc asc f) ls)
      
 input = Ann () (Procedure (Ann () (Name "program1")) (Ann () (Sequence (AnnList 
             [ Ann () (Assign (Ann () (Variable (Name "a"))) (Ann () (LitExpr (IntLit 1))))
@@ -51,7 +54,19 @@ expected = Ann [] (Procedure (Ann [0] (Name "program1")) (Ann [1] (Sequence (Ann
             , Ann [1,1] (Assign (Ann [0,1,1] (Variable (Name "v"))) (Ann [1,1,1] (Plus (Ann [0,1,1,1] (Variable (Name "b")))
                                        (Ann [1,1,1,1] (LitExpr (IntLit 2))))))
             ]))))
-     
+            
+topDownRes :: [[Int]]
+topDownRes = execWriter $ traverseDown (return ()) (return ()) (tell . (:[])) expected
+
+topDownExpected :: [[Int]]
+topDownExpected = [[],[0],[1],[0,1],[0,0,1],[1,0,1],[1,1],[0,1,1],[1,1,1],[0,1,1,1],[1,1,1,1]]
+
+bottomUpRes :: [[Int]]
+bottomUpRes = execWriter $ traverseUp (return ()) (return ()) (tell . (:[])) expected
+
+bottomUpExpected :: [[Int]]
+bottomUpExpected = [[0],[0,0,1],[1,0,1],[0,1],[0,1,1],[0,1,1,1],[1,1,1,1],[1,1,1],[1,1],[1],[]]
+
 deriveStructTrav ''Lit
 deriveStructTrav ''Expr
 deriveStructTrav ''Instr
@@ -59,6 +74,10 @@ deriveStructTrav ''Decl
 deriveStructTrav ''Name
 
 main :: IO ()
-main = assertEqual "The result of the transformation is not expected" 
-                   expected (indexedTraverse (\_ i -> i) input)
+main = do assertEqual "The result of the transformation is not as expected" 
+                      expected (indexedTraverse (\_ i -> i) input)
+          assertEqual "The result of bottom-up traversal is not as expected" 
+                      bottomUpExpected bottomUpRes
+          assertEqual "The result of top-down traversal is not as expected" 
+                      topDownExpected topDownRes
      

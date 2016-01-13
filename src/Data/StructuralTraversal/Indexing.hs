@@ -8,9 +8,9 @@ import Control.Applicative
 indexedTraverse :: StructuralTraversable t => (a -> [Int] -> b) -> t a -> t b
 indexedTraverse f
   = flip evalState []
-      . structTraverse ( modify (0:) )
-                       ( modify tail ) 
-                       ( \a -> f a <$> get <* modify ( \case s:st -> (s+1):st
-                                                             []   -> [] ))
+      . traverseUp ( modify (0:) )
+                   ( modify tail ) 
+                   ( \a -> f a <$> get <* modify ( \case s:st -> (s+1):st
+                                                         []   -> [] ))
                         
   

@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase
-           , CPP #-}
+           , CPP 
+           #-}
 module Data.StructuralTraversal.TH where
   
 import Language.Haskell.TH
@@ -21,12 +22,13 @@ deriveStructTrav nm = reify nm >>= (\case
   
 createInstance :: Name -> [TyVarBndr] -> [Con] -> Q [Dec]
 createInstance tyConName typArgs dataCons   
-          = do (clauses, preds) <- unzip <$> mapM createClause dataCons
+          = do (upClauses, preds) <- unzip <$> mapM (createClause upName) dataCons
+               (downClauses, _) <- unzip <$> mapM (createClause downName) dataCons
                return [InstanceD (concat preds) 
                                  (AppT (ConT className) 
                                  (foldl AppT (ConT tyConName) 
                                         (map getTypVarTyp (init typArgs))))
-                                 [FunD funName clauses]]
+                                 [FunD upName upClauses, FunD downName downClauses]]
   where  -- | Gets the variable that is traversed on
         varToTraverseOn :: Q Name
         varToTraverseOn = case reverse typArgs of 
@@ -36,15 +38,15 @@ createInstance tyConName typArgs dataCons
           []                        -> fail $ "The kind of type " ++ show tyConName ++ " is *"
   
         -- | Creates a clause for a constructor, the needed context is also generated
-        createClause :: Con -> Q (Clause,[Pred])
-        createClause (RecC conName conArgs) 
-          = createClause' conName (map (\(_,_,r) -> r) conArgs)
-        createClause (NormalC conName conArgs) 
-          = createClause' conName (map snd conArgs)
+        createClause :: Name -> Con -> Q (Clause,[Pred])
+        createClause funN (RecC conName conArgs) 
+          = createClause' funN conName (map (\(_,_,r) -> r) conArgs)
+        createClause funN (NormalC conName conArgs) 
+          = createClause' funN conName (map snd conArgs)
         
-        createClause' conName argTypes
+        createClause' funN conName argTypes
           = do bindedNames <- replicateM (length argTypes) (newName "p")
-               (handleParams,ctx) <- unzip <$> zipWithM processParam
+               (handleParams,ctx) <- unzip <$> zipWithM (processParam funN)
                                                         bindedNames argTypes
                return $ (Clause [ VarP desc, VarP asc, VarP f
                                , ConP conName (map VarP bindedNames) ] 
@@ -67,44 +69,46 @@ createInstance tyConName typArgs dataCons
         applPure = VarE (mkName "Control.Applicative.pure")
         
         className = mkName "StructuralTraversable"
-        funName = mkName "structTraverse"
+        upName = mkName "traverseUp"
+        downName = mkName "traverseDown"
         desc = mkName "desc"
         asc = mkName "asc"
         f = mkName "f"
        
         -- | Creates the expression and the predicate for a parameter
-        processParam :: Name -> Type -> Q (Exp, [Pred])
-        processParam name (VarT v)  -- found the type variable to traverse on
+        processParam :: Name -> Name -> Type -> Q (Exp, [Pred])
+        processParam _ name (VarT v)  -- found the type variable to traverse on
           = do travV <- varToTraverseOn 
                if v == travV then return (AppE (VarE f) (VarE name), [])
                              else return (AppE applPure (VarE name), [])
-        processParam name (AppT tf ta) = do
-          expr <- createExprForHighKind' name (VarE f) ta
+        processParam funN name (AppT tf ta) = do
+          expr <- createExprForHighKind' funN name (VarE f) ta
           case expr of Just (e,ctx) -> return (e, if isTypVar tf then createConstraint className tf : ctx
                                                                  else ctx)
                        Nothing -> return (AppE applPure (VarE name), [])
-        processParam name _
+        processParam _ name _
           = return (AppE applPure (VarE name), [])
   
         -- | Create an expression and a context for a higher kinded parameter
-        createExprForHighKind' :: Name -> Exp -> Type -> Q (Maybe (Exp, [Pred]))
-        createExprForHighKind' name f (AppT tf ta)
-          = do res <- createExprForHighKind' name (applExpr f) ta
+        createExprForHighKind' :: Name -> Name -> Exp -> Type -> Q (Maybe (Exp, [Pred]))
+        createExprForHighKind' funN name f (AppT tf ta)
+          = do res <- createExprForHighKind' funN name (applExpr funN f) ta
                case res of Just (e,ctx) -> return $ Just (e, if isTypVar tf 
                                                                then createConstraint className tf : ctx
                                                                else ctx)
                            Nothing -> return Nothing
-        createExprForHighKind' name f (VarT v)
+        createExprForHighKind' funN name f (VarT v)
           = do travV <- varToTraverseOn 
                if v == travV then
-                 return $ Just (applExpr f `AppE` (VarE name), [])
+                 return $ Just (applExpr funN f `AppE` (VarE name), [])
                 else return Nothing
-        createExprForHighKind' _ name _
+        createExprForHighKind' _ _ _ _
           = return Nothing
           
-        applExpr f = (((VarE funName) `AppE` (VarE desc)) `AppE` (VarE asc)) 
+        applExpr funN f = (((VarE funN) `AppE` (VarE desc)) `AppE` (VarE asc)) 
                           `AppE` f
                        
+-- Predicates are types from GHC 7.10
 createConstraint :: Name -> Type -> Pred
 createConstraint name typ
 #if __GLASGOW_HASKELL__ >= 710
