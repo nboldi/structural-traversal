@@ -14,9 +14,9 @@ import Control.Applicative
 deriveStructTrav :: Name -> Q [Dec]
 deriveStructTrav nm = reify nm >>= (\case
   TyConI dt -> case dt of
-    DataD _ tyConName typArgs dataCons _ -> 
+    DataD _ tyConName typArgs _ dataCons _ -> 
       createInstance tyConName typArgs dataCons  
-    NewtypeD _ tyConName typArgs dataCon _ -> 
+    NewtypeD _ tyConName typArgs _ dataCon _ -> 
       createInstance tyConName typArgs [dataCon]  
     _ -> fail "Unsupported data type"
   _ -> fail "Expected the name of a data type or newtype"
@@ -26,7 +26,8 @@ createInstance :: Name -> [TyVarBndr] -> [Con] -> Q [Dec]
 createInstance tyConName typArgs dataCons   
           = do (upClauses, preds) <- unzip <$> mapM (createClause upName) dataCons
                (downClauses, _) <- unzip <$> mapM (createClause downName) dataCons
-               return [InstanceD (concat preds) 
+               return [InstanceD Nothing
+                                 (concat preds) 
                                  (AppT (ConT className) 
                                  (foldl AppT (ConT tyConName) 
                                         (map getTypVarTyp (init typArgs))))
