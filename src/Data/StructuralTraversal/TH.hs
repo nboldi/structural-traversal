@@ -32,7 +32,7 @@ createInstance tyConName typArgs dataCons
                                  (foldl AppT (ConT tyConName) 
                                         (map getTypVarTyp (init typArgs))))
                                  [FunD upName upClauses, FunD downName downClauses]]
-  where  -- | Gets the variable that is traversed on
+  where -- | Gets the variable that is traversed on
         varToTraverseOn :: Q Name
         varToTraverseOn = case reverse typArgs of 
           (PlainTV last : _)        -> return last
